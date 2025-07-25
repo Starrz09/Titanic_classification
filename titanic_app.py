@@ -66,7 +66,7 @@ st.markdown("""
 @st.cache_resource
 def load_model():
     try:
-        with open("pipeline.pkl", "rb") as file:
+        with open("pipeline_updated.pkl", "rb") as file:
             return pickle.load(file)
     except FileNotFoundError:
         st.error("Model file not found. Please ensure 'pipeline.pkl' is in the same directory.")
@@ -85,7 +85,7 @@ st.markdown("""
 # Sidebar with information
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/commons/f/fd/RMS_Titanic_3.jpg", 
-             caption="RMS Titanic", use_column_width=True)
+             caption="RMS Titanic, image from Britannica", use_column_width=True)
     
     st.markdown("### About the Titanic")
     st.markdown("""
@@ -158,10 +158,9 @@ with tab1:
 
     if submitted:
         # Feature engineering matching the notebook exactly
-        family_size = sibsp + parch + 1
-        is_alone = 1 if family_size == 1 else 0
+    
         log_fare = np.log1p(fare)
-        log_fare_per_person = log_fare / family_size if family_size > 0 else log_fare
+    
         
         # Age group determination
         if age < 10:
@@ -186,8 +185,7 @@ with tab1:
         input_data = pd.DataFrame([{
             'siblings_or_spouses_aboard': sibsp,
             'parents_or_children_aboard': parch,
-            'log_fare': log_fare,
-            'log_fare_per_person': log_fare_per_person,
+            'log_fare': log_fare
             'sex': sex,
             'embarked': embarked,
             'p_class': pclass,

@@ -157,34 +157,41 @@ with tab1:
                                         type="primary")
 
     if submitted:
-        # Feature engineering (same as original)
+        # Feature engineering matching the notebook exactly
         family_size = sibsp + parch + 1
-        is_alone = int(family_size == 1)
+        is_alone = 1 if family_size == 1 else 0
         log_fare = np.log1p(fare)
+        log_fare_per_person = log_fare / family_size if family_size > 0 else log_fare
         
-        # Age group
-        age_bins = [0, 10, 20, 30, 40, 60, 81]
-        age_labels = ['Child', 'Teenager', 'Young Adult', 'Adult', 'Middle-Aged', 'Elderly']
-        age_group = pd.cut([age], bins=age_bins, labels=age_labels, right=False)[0]
+        # Age group determination
+        if age < 10:
+            age_group = 'Child'
+        elif age < 20:
+            age_group = 'Teenager'
+        elif age < 30:
+            age_group = 'Young Adult'
+        elif age < 40:
+            age_group = 'Adult'
+        elif age < 60:
+            age_group = 'Middle-Aged'
+        else:
+            age_group = 'Elderly'
         
         # Composite features
         age_class = f"{age_group}_{pclass}"
         sex_pclass = f"{sex}_{pclass}"
         
-        # Build DataFrame for model
+        # Build DataFrame with only the features used in training
+        # Based on the notebook, these are the features after dropping 'survived', 'fare', 'age', 'family_size', 'is_alone'
         input_data = pd.DataFrame([{
+            'siblings_or_spouses_aboard': sibsp,
+            'parents_or_children_aboard': parch,
+            'log_fare': log_fare,
+            'log_fare_per_person': log_fare_per_person,
             'sex': sex,
             'embarked': embarked,
             'p_class': pclass,
             'title': title,
-            'age': age,
-            'siblings_or_spouses_aboard': sibsp,
-            'parents_or_children_aboard': parch,
-            'family_size': family_size,
-            'is_alone': is_alone,
-            'fare': fare,
-            'log_fare': log_fare,
-            'log_fare_per_person': log_fare / family_size,
             'age_group': age_group,
             'age_class': age_class,
             'sex_pclass': sex_pclass
@@ -192,6 +199,7 @@ with tab1:
         
         # Make prediction
         try:
+            # Get prediction and probability
             prediction = pipeline.predict(input_data)[0]
             proba = pipeline.predict_proba(input_data)[0][1]
             
@@ -262,8 +270,18 @@ with tab1:
             fig.update_layout(height=400)
             st.plotly_chart(fig, use_container_width=True)
             
+            # Show feature values used for prediction (for debugging)
+            with st.expander("🔍 View Feature Values Used"):
+                st.dataframe(input_data)
+            
         except Exception as e:
             st.error(f"Error making prediction: {str(e)}")
+            st.error("Please check that the model file matches the expected features.")
+            with st.expander("Debug Information"):
+                st.write("Input data shape:", input_data.shape)
+                st.write("Input data columns:", list(input_data.columns))
+                st.write("Input data:")
+                st.dataframe(input_data)
 
 with tab2:
     st.markdown("### 📊 Historical Survival Statistics")
@@ -294,6 +312,19 @@ with tab2:
         fig = px.pie(gender_survival, values='Survival Rate', names='Gender',
                     title='Survival Rate by Gender')
         st.plotly_chart(fig, use_container_width=True)
+    
+    # Additional statistics
+    st.markdown("### Age Group Survival Rates")
+    age_survival = pd.DataFrame({
+        'Age Group': ['Child', 'Teenager', 'Young Adult', 'Adult', 'Middle-Aged', 'Elderly'],
+        'Survival Rate': [61.3, 40.2, 35.8, 36.9, 40.4, 22.7]
+    })
+    
+    fig = px.bar(age_survival, x='Age Group', y='Survival Rate',
+                title='Survival Rate by Age Group',
+                color='Survival Rate',
+                color_continuous_scale='RdYlGn')
+    st.plotly_chart(fig, use_container_width=True)
 
 with tab3:
     st.markdown("### ℹ️ About This Application")
@@ -301,18 +332,28 @@ with tab3:
     st.markdown("""
     <div class="info-box">
     <h4>How It Works</h4>
-    <p>This application uses a machine learning model trained on historical Titanic passenger data. 
+    <p>This application uses a Gradient Boosting Classifier trained on historical Titanic passenger data. 
     The model considers multiple factors including passenger class, age, gender, family size, and fare paid 
     to predict survival probability.</p>
     </div>
     
     <div class="info-box">
     <h4>Model Features</h4>
+    <p>The model uses the following features after extensive feature engineering and selection:</p>
     <ul>
-        <li><strong>Demographic Data:</strong> Age, gender, title</li>
-        <li><strong>Ticket Information:</strong> Class, fare, embarkation port</li>
-        <li><strong>Family Data:</strong> Siblings, spouses, parents, children</li>
-        <li><strong>Engineered Features:</strong> Family size, age groups, composite features</li>
+        <li><strong>Basic Information:</strong> Siblings/spouses aboard, parents/children aboard</li>
+        <li><strong>Categorical Features:</strong> Sex, embarked port, passenger class, title, age group</li>
+        <li><strong>Engineered Features:</strong> Log fare, log fare per person, age-class combination, sex-class combination</li>
+    </ul>
+    <p><em>Note: Age, fare, family size, and is_alone features were dropped during model optimization as they had minimal predictive value after encoding.</em></p>
+    </div>
+    
+    <div class="info-box">
+    <h4>Model Performance</h4>
+    <ul>
+        <li>Training Accuracy: 92.70%</li>
+        <li>Test Accuracy: 84.92%</li>
+        <li>ROC-AUC Score: 0.87</li>
     </ul>
     </div>
     
@@ -339,6 +380,6 @@ with tab3:
 # Footer
 st.markdown("---")
 st.markdown(
-    "<div style='text-align: center; color: gray;'>Built with Streamlit • Historical data analysis</div>", 
+    "<div style='text-align: center; color: gray;'>Built with Streamlit • Based on Gradient Boosting Classifier • Historical data analysis</div>", 
     unsafe_allow_html=True
 )

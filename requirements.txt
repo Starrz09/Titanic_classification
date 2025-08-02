@@ -3,5 +3,4 @@ plotly
 pandas
 numpy
 scikit-learn
-pickle
 lightgbm

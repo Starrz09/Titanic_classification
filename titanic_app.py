@@ -54,19 +54,40 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         text-align: center;
     }
+    .error-box {
+        background: #f8d7da;
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 4px solid #dc3545;
+        margin: 1rem 0;
+        color: #721c24;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Load LightGBM model
+# Load LightGBM model with better error handling
 @st.cache_resource
 def load_model():
     try:
+        # Try to import lightgbm first
+        import lightgbm as lgb
+    except ImportError:
+        st.error("LightGBM is not installed. Please add 'lightgbm' to your requirements.txt file.")
+        return None
+    
+    try:
         with open("tuned_lgbm_model.pkl", "rb") as file:
-            return pickle.load(file)
+            model = pickle.load(file)
+            st.success("✅ Model loaded successfully!")
+            return model
     except FileNotFoundError:
-        st.error("Model file not found. Please ensure 'tuned_lgbm_model.pkl' is in the directory.")
+        st.error("Model file 'tuned_lgbm_model.pkl' not found. Please ensure the model file is in the repository root directory.")
+        return None
+    except Exception as e:
+        st.error(f"Error loading model: {str(e)}")
         return None
 
+# Check if model can be loaded
 model = load_model()
 
 # Header
@@ -94,14 +115,30 @@ with st.sidebar:
     - **Port of Embarkation**
     """)
 
+# If model is not available, show error message but continue with demo functionality
 if model is None:
-    st.stop()
+    st.markdown("""
+    <div class="error-box">
+        <h4>⚠️ Model Not Available</h4>
+        <p>The trained model couldn't be loaded. This could be because:</p>
+        <ul>
+            <li>The model file 'tuned_lgbm_model.pkl' is missing from the repository</li>
+            <li>LightGBM dependency is not installed</li>
+            <li>There's a compatibility issue with the model file</li>
+        </ul>
+        <p><strong>You can still explore the app interface and statistics below.</strong></p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Tabs
 tab1, tab2, tab3 = st.tabs(["🎯 Make Prediction", "📊 Survival Statistics", "ℹ️ About"])
 
 with tab1:
     st.markdown("### Enter Passenger Details")
+    
+    if model is None:
+        st.warning("⚠️ Model not available - predictions will use demo logic")
+    
     with st.form("prediction_form"):
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -160,72 +197,111 @@ with tab1:
             'sex_pclass': sex_pclass
         }])
 
-        categorical_cols = ['p_class', 'sex', 'embarked', 'title', 'age_group',
-                            'is_alone', 'age_class', 'sex_pclass']
-        input_data[categorical_cols] = input_data[categorical_cols].astype('category')
+        if model is not None:
+            # Use actual model prediction
+            try:
+                categorical_cols = ['p_class', 'sex', 'embarked', 'title', 'age_group',
+                                    'is_alone', 'age_class', 'sex_pclass']
+                input_data[categorical_cols] = input_data[categorical_cols].astype('category')
 
-        try:
-            prediction = model.predict(input_data)[0]
-            proba = model.predict_proba(input_data)[0][1]
+                prediction = model.predict(input_data)[0]
+                proba = model.predict_proba(input_data)[0][1]
 
-            st.markdown("---")
-            st.markdown("### 🎯 Your Fate Revealed")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-                st.metric("Survival Probability", f"{proba*100:.1f}%")
-                st.markdown('</div>', unsafe_allow_html=True)
-            with col2:
-                st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-                st.metric("Family Size", family_size)
-                st.markdown('</div>', unsafe_allow_html=True)
-            with col3:
-                st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-                st.metric("Age Group", age_group)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            if prediction == 1:
-                st.markdown(f"""
-                <div class="prediction-card survived-card">
-                    <h2>🎉 Congratulations! You Survived!</h2>
-                    <p style="font-size: 1.2em;">Your predicted survival probability is <strong>{proba*100:.1f}%</strong>.</p>
-                </div>
-                """, unsafe_allow_html=True)
-                st.balloons()
-            else:
-                st.markdown(f"""
-                <div class="prediction-card died-card">
-                    <h2>💔 Unfortunately, You Did Not Survive</h2>
-                    <p style="font-size: 1.2em;">Predicted confidence of non-survival: <strong>{(1 - proba)*100:.1f}%</strong>.</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-            fig = go.Figure(go.Indicator(
-                mode="gauge+number+delta",
-                value=proba*100,
-                delta={'reference': 50},
-                gauge={
-                    'axis': {'range': [0, 100]},
-                    'bar': {'color': "darkblue"},
-                    'steps': [
-                        {'range': [0, 25], 'color': "lightgray"},
-                        {'range': [25, 50], 'color': "gray"},
-                        {'range': [50, 75], 'color': "lightgreen"},
-                        {'range': [75, 100], 'color': "green"},
-                    ],
-                    'threshold': {'line': {'color': "red", 'width': 4}, 'value': 90}
-                },
-                title={'text': "Survival Probability (%)"}
-            ))
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
-
-            with st.expander("🔍 View Feature Values Used"):
+            except Exception as e:
+                st.error(f"Prediction error: {str(e)}")
+                st.write("Input data that caused the error:")
                 st.dataframe(input_data)
+                st.stop()
+        else:
+            # Use simple rule-based prediction as fallback
+            st.info("Using simplified prediction rules (model not available)")
+            
+            # Simple survival probability based on historical patterns
+            base_prob = 0.32  # Overall survival rate
+            
+            # Gender factor (strongest predictor)
+            if sex == "Female":
+                base_prob *= 2.3  # Women had much higher survival rates
+            else:
+                base_prob *= 0.6  # Men had lower survival rates
+            
+            # Class factor
+            if pclass == "1":
+                base_prob *= 1.6
+            elif pclass == "2":
+                base_prob *= 1.2
+            else:
+                base_prob *= 0.8
+            
+            # Age factor
+            if age < 16:
+                base_prob *= 1.3  # Children had higher survival rates
+            elif age > 60:
+                base_prob *= 0.8  # Elderly had lower survival rates
+            
+            # Family size factor
+            if family_size > 0 and family_size < 4:
+                base_prob *= 1.1  # Small families had slight advantage
+            elif family_size >= 4:
+                base_prob *= 0.9  # Large families had disadvantage
+            
+            proba = min(base_prob, 0.95)  # Cap at 95%
+            prediction = 1 if proba > 0.5 else 0
 
-        except Exception as e:
-            st.error("Prediction error. Check model or input features.")
-            st.write(str(e))
+        st.markdown("---")
+        st.markdown("### 🎯 Your Fate Revealed")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown('<div class="metric-container">', unsafe_allow_html=True)
+            st.metric("Survival Probability", f"{proba*100:.1f}%")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown('<div class="metric-container">', unsafe_allow_html=True)
+            st.metric("Family Size", family_size)
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col3:
+            st.markdown('<div class="metric-container">', unsafe_allow_html=True)
+            st.metric("Age Group", age_group)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        if prediction == 1:
+            st.markdown(f"""
+            <div class="prediction-card survived-card">
+                <h2>🎉 Congratulations! You Survived!</h2>
+                <p style="font-size: 1.2em;">Your predicted survival probability is <strong>{proba*100:.1f}%</strong>.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            st.balloons()
+        else:
+            st.markdown(f"""
+            <div class="prediction-card died-card">
+                <h2>💔 Unfortunately, You Did Not Survive</h2>
+                <p style="font-size: 1.2em;">Predicted confidence of non-survival: <strong>{(1 - proba)*100:.1f}%</strong>.</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Survival probability gauge
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number+delta",
+            value=proba*100,
+            delta={'reference': 50},
+            gauge={
+                'axis': {'range': [0, 100]},
+                'bar': {'color': "darkblue"},
+                'steps': [
+                    {'range': [0, 25], 'color': "lightgray"},
+                    {'range': [25, 50], 'color': "gray"},
+                    {'range': [50, 75], 'color': "lightgreen"},
+                    {'range': [75, 100], 'color': "green"},
+                ],
+                'threshold': {'line': {'color': "red", 'width': 4}, 'value': 90}
+            },
+            title={'text': "Survival Probability (%)"}
+        ))
+        fig.update_layout(height=400)
+        st.plotly_chart(fig, use_container_width=True)
+
+        with st.expander("🔍 View Feature Values Used"):
             st.dataframe(input_data)
 
 with tab2:
@@ -237,14 +313,16 @@ with tab2:
             'Survival Rate': [62.96, 47.28, 24.24]
         })
         fig = px.bar(class_survival, x='Class', y='Survival Rate',
-                     color='Survival Rate', color_continuous_scale='RdYlGn')
+                     color='Survival Rate', color_continuous_scale='RdYlGn',
+                     title="Survival Rate by Passenger Class")
         st.plotly_chart(fig, use_container_width=True)
     with col2:
         gender_survival = pd.DataFrame({
             'Gender': ['Female', 'Male'],
             'Survival Rate': [74.20, 18.89]
         })
-        fig = px.pie(gender_survival, values='Survival Rate', names='Gender')
+        fig = px.pie(gender_survival, values='Survival Rate', names='Gender',
+                     title="Survival Rate by Gender")
         st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("### Age Group Survival Rates")
@@ -253,7 +331,8 @@ with tab2:
         'Survival Rate': [61.3, 40.2, 35.8, 36.9, 40.4, 22.7]
     })
     fig = px.bar(age_survival, x='Age Group', y='Survival Rate',
-                 color='Survival Rate', color_continuous_scale='RdYlGn')
+                 color='Survival Rate', color_continuous_scale='RdYlGn',
+                 title="Survival Rate by Age Group")
     st.plotly_chart(fig, use_container_width=True)
 
 with tab3:
@@ -271,6 +350,16 @@ with tab3:
         <li>Train Accuracy: ~92%</li>
         <li>Validation Accuracy: ~85%</li>
         <li>Model: LightGBM Classifier</li>
+    </ul>
+    </div>
+
+    <div class="info-box">
+    <h4>Troubleshooting</h4>
+    <p>If the model fails to load, ensure:</p>
+    <ul>
+        <li>'lightgbm' is in your requirements.txt</li>
+        <li>'tuned_lgbm_model.pkl' is in your repository root</li>
+        <li>The model was saved with a compatible LightGBM version</li>
     </ul>
     </div>
     """, unsafe_allow_html=True)

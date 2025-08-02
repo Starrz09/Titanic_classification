@@ -146,21 +146,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Algorithm Information
-st.markdown("""
-<div class="algorithm-info">
-    <h4>🤖 Machine Learning Algorithm: LightGBM (Light Gradient Boosting Machine)</h4>
-    <p><strong>LightGBM</strong> is a high-performance gradient boosting framework that uses tree-based learning algorithms. 
-    It's designed to be distributed and efficient with faster training speed, higher efficiency, lower memory usage, 
-    and better accuracy than traditional gradient boosting methods.</p>
-    <ul>
-        <li><strong>Type:</strong> Ensemble Learning (Gradient Boosting)</li>
-        <li><strong>Strengths:</strong> Handles categorical features well, fast training, high accuracy</li>
-        <li><strong>Perfect for:</strong> Tabular data like passenger information</li>
-    </ul>
-</div>
-""", unsafe_allow_html=True)
-
 # Sidebar
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/commons/f/fd/RMS_Titanic_3.jpg", 
@@ -519,7 +504,41 @@ if submitted:
 
 # Footer
 st.markdown("---")
+
+# Algorithm Information at the end
+st.markdown("""
+<div class="algorithm-info">
+    <h4>🤖 About the Machine Learning Algorithm: LightGBM</h4>
+    <p><strong>LightGBM (Light Gradient Boosting Machine)</strong> is the advanced machine learning algorithm powering this predictor. 
+    It's a high-performance gradient boosting framework that uses tree-based learning algorithms.</p>
+    <div style="margin: 1rem 0;">
+        <h5>🔧 Technical Details:</h5>
+        <ul>
+            <li><strong>Algorithm Type:</strong> Ensemble Learning (Gradient Boosting)</li>
+            <li><strong>Training Method:</strong> Builds multiple decision trees sequentially</li>
+            <li><strong>Key Advantages:</strong> Faster training, higher efficiency, lower memory usage, superior accuracy</li>
+            <li><strong>Optimization:</strong> Uses histogram-based algorithms and leaf-wise tree growth</li>
+        </ul>
+    </div>
+    <div style="margin: 1rem 0;">
+        <h5>🎯 Why LightGBM for Titanic Prediction:</h5>
+        <ul>
+            <li><strong>Categorical Features:</strong> Handles passenger class, gender, embarkation port natively</li>
+            <li><strong>Mixed Data Types:</strong> Processes both numerical (age, fare) and categorical data efficiently</li>
+            <li><strong>Feature Interactions:</strong> Automatically discovers complex relationships between features</li>
+            <li><strong>Overfitting Resistance:</strong> Built-in regularization prevents memorizing training data</li>
+            <li><strong>Interpretability:</strong> Works seamlessly with SHAP for prediction explanations</li>
+        </ul>
+    </div>
+    <div style="margin: 1rem 0;">
+        <h5>📊 Model Performance:</h5>
+        <p>This LightGBM model was trained on historical Titanic passenger data and tuned for optimal performance, 
+        providing both high accuracy predictions and detailed explanations through SHAP values.</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 st.markdown(
-    "<div style='text-align: center; color: gray;'>Built with Streamlit • Powered by LightGBM • Explained by SHAP</div>", 
+    "<div style='text-align: center; color: gray; margin-top: 2rem;'>Built with Streamlit • Powered by LightGBM • Explained by SHAP</div>", 
     unsafe_allow_html=True
 )

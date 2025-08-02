@@ -42,11 +42,13 @@ st.markdown("""
         background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
     }
     .info-box {
-        background: #f8f9fa;
-        padding: 1rem;
-        border-radius: 8px;
-        border-left: 4px solid #007bff;
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        padding: 1.5rem;
+        border-radius: 10px;
+        border-left: 4px solid #2196F3;
         margin: 1rem 0;
+        color: #0d47a1;
+        box-shadow: 0 2px 8px rgba(33, 150, 243, 0.2);
     }
     .metric-container {
         background: white;
@@ -85,6 +87,15 @@ st.markdown("""
     .negative-impact {
         background: linear-gradient(90deg, rgba(220, 53, 69, 0.1), rgba(220, 53, 69, 0.05));
         border-left: 3px solid #dc3545;
+    }
+    .algorithm-info {
+        background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+        padding: 1.5rem;
+        border-radius: 10px;
+        border-left: 4px solid #9c27b0;
+        margin: 1rem 0;
+        color: #4a148c;
+        box-shadow: 0 2px 8px rgba(156, 39, 176, 0.2);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -135,6 +146,21 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Algorithm Information
+st.markdown("""
+<div class="algorithm-info">
+    <h4>🤖 Machine Learning Algorithm: LightGBM (Light Gradient Boosting Machine)</h4>
+    <p><strong>LightGBM</strong> is a high-performance gradient boosting framework that uses tree-based learning algorithms. 
+    It's designed to be distributed and efficient with faster training speed, higher efficiency, lower memory usage, 
+    and better accuracy than traditional gradient boosting methods.</p>
+    <ul>
+        <li><strong>Type:</strong> Ensemble Learning (Gradient Boosting)</li>
+        <li><strong>Strengths:</strong> Handles categorical features well, fast training, high accuracy</li>
+        <li><strong>Perfect for:</strong> Tabular data like passenger information</li>
+    </ul>
+</div>
+""", unsafe_allow_html=True)
+
 # Sidebar
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/commons/f/fd/RMS_Titanic_3.jpg", 
@@ -154,34 +180,32 @@ with st.sidebar:
     """)
     
     if model is not None:
-        st.success("🤖 AI Model: Active")
+        st.success("🤖 LightGBM Model: Active")
         if explainer is not None:
             st.success("🔍 SHAP Explanations: Available")
         else:
             st.warning("🔍 SHAP Explanations: Unavailable")
     else:
-        st.error("🤖 AI Model: Unavailable")
+        st.error("🤖 LightGBM Model: Unavailable")
 
-# If model is not available, show error message but continue with demo functionality
+# If model is not available, stop the app
 if model is None:
     st.markdown("""
     <div class="error-box">
-        <h4>⚠️ Model Not Available</h4>
-        <p>The trained model couldn't be loaded. This could be because:</p>
+        <h4>⚠️ Model Required</h4>
+        <p>The trained LightGBM model couldn't be loaded. This app requires the model to function. Please ensure:</p>
         <ul>
-            <li>The model file 'tuned_lgbm_model.pkl' is missing from the repository</li>
-            <li>LightGBM dependency is not installed</li>
-            <li>There's a compatibility issue with the model file</li>
+            <li>The model file 'tuned_lgbm_model.pkl' is present in the repository</li>
+            <li>LightGBM dependency is installed</li>
+            <li>The model file is compatible with the current environment</li>
         </ul>
-        <p><strong>You can still explore the app interface below.</strong></p>
+        <p><strong>The app cannot proceed without the trained model.</strong></p>
     </div>
     """, unsafe_allow_html=True)
+    st.stop()
 
 # Main prediction interface
 st.markdown("### 🎯 Enter Passenger Details")
-
-if model is None:
-    st.warning("⚠️ Model not available - predictions will use demo logic")
 
 with st.form("prediction_form"):
     col1, col2, col3 = st.columns(3)
@@ -249,60 +273,24 @@ if submitted:
         'sex_pclass': sex_pclass
     }])
 
-    if model is not None:
-        # Use actual model prediction
-        try:
-            # Convert categorical columns to 'category' dtype exactly like training
-            categorical_cols = ['p_class', 'sex', 'embarked', 'title', 'age_group',
-                                'is_alone', 'age_class', 'sex_pclass']
-            input_data[categorical_cols] = input_data[categorical_cols].astype('category')
+    # Use LightGBM model prediction
+    try:
+        # Convert categorical columns to 'category' dtype exactly like training
+        categorical_cols = ['p_class', 'sex', 'embarked', 'title', 'age_group',
+                            'is_alone', 'age_class', 'sex_pclass']
+        input_data[categorical_cols] = input_data[categorical_cols].astype('category')
 
-            prediction = model.predict(input_data)[0]
-            proba = model.predict_proba(input_data)[0][1]
+        prediction = model.predict(input_data)[0]
+        proba = model.predict_proba(input_data)[0][1]
 
-        except Exception as e:
-            st.error(f"Prediction error: {str(e)}")
-            st.write("Detailed error information:")
-            st.write(f"Input data shape: {input_data.shape}")
-            st.write("Input data columns:", list(input_data.columns))
-            st.write("Input data:")
-            st.dataframe(input_data)
-            st.stop()
-    else:
-        # Use simple rule-based prediction as fallback
-        st.info("Using simplified prediction rules (model not available)")
-        
-        # Simple survival probability based on historical patterns
-        base_prob = 0.32  # Overall survival rate
-        
-        # Gender factor (strongest predictor)
-        if sex == "Female":
-            base_prob *= 2.3
-        else:
-            base_prob *= 0.6
-        
-        # Class factor
-        if pclass == "1":
-            base_prob *= 1.6
-        elif pclass == "2":
-            base_prob *= 1.2
-        else:
-            base_prob *= 0.8
-        
-        # Age factor
-        if age < 16:
-            base_prob *= 1.3
-        elif age > 60:
-            base_prob *= 0.8
-        
-        # Family size factor
-        if family_size > 0 and family_size < 4:
-            base_prob *= 1.1
-        elif family_size >= 4:
-            base_prob *= 0.9
-        
-        proba = min(base_prob, 0.95)
-        prediction = 1 if proba > 0.5 else 0
+    except Exception as e:
+        st.error(f"Prediction error: {str(e)}")
+        st.write("Detailed error information:")
+        st.write(f"Input data shape: {input_data.shape}")
+        st.write("Input data columns:", list(input_data.columns))
+        st.write("Input data:")
+        st.dataframe(input_data)
+        st.stop()
 
     st.markdown("---")
     st.markdown("### 🎯 Your Fate Revealed")
@@ -327,6 +315,7 @@ if submitted:
         <div class="prediction-card survived-card">
             <h2>🎉 Congratulations! You Survived!</h2>
             <p style="font-size: 1.2em;">Your predicted survival probability is <strong>{proba*100:.1f}%</strong>.</p>
+            <p><em>Prediction made by LightGBM algorithm</em></p>
         </div>
         """, unsafe_allow_html=True)
         st.balloons()
@@ -335,6 +324,7 @@ if submitted:
         <div class="prediction-card died-card">
             <h2>💔 Unfortunately, You Did Not Survive</h2>
             <p style="font-size: 1.2em;">Predicted confidence of non-survival: <strong>{(1 - proba)*100:.1f}%</strong>.</p>
+            <p><em>Prediction made by LightGBM algorithm</em></p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -360,11 +350,11 @@ if submitted:
             },
             title={'text': "Survival Probability (%)"}
         ))
-        fig.update_layout(height=400, title="Your Survival Chance")
+        fig.update_layout(height=400, title="LightGBM Prediction")
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
-        # Feature importance chart (simplified version)
+        # Feature importance chart (simplified version based on common patterns)
         feature_importance = {
             'Gender': 0.35 if sex == "Female" else -0.45,
             'Passenger Class': 0.25 if pclass == "1" else (0.1 if pclass == "2" else -0.2),
@@ -386,20 +376,20 @@ if submitted:
             textposition="auto"
         ))
         fig.update_layout(
-            title="Feature Impact on Your Survival",
+            title="General Feature Impact Patterns",
             xaxis_title="Impact (+ helps survival, - hurts survival)",
             height=400
         )
         st.plotly_chart(fig, use_container_width=True)
 
     # SHAP Explanations (if available)
-    if model is not None and explainer is not None:
-        st.markdown("### 🔍 AI Model Explanation")
+    if explainer is not None:
+        st.markdown("### 🔍 LightGBM Model Explanation")
         st.markdown("""
         <div class="explanation-box">
-            <h4>🧠 Why did the AI make this prediction?</h4>
+            <h4>🧠 Why did the LightGBM algorithm make this prediction?</h4>
             <p>The SHAP (SHapley Additive exPlanations) analysis below shows exactly how each of your characteristics 
-            influenced the AI's decision. Green bars push toward survival, red bars push toward death.</p>
+            influenced the LightGBM model's decision. Green bars push toward survival, red bars push toward death.</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -496,7 +486,7 @@ if submitted:
             
             st.plotly_chart(fig, use_container_width=True)
             
-            # Base value explanation
+            # Base value explanation with improved visibility
             base_value = explainer.expected_value
             if isinstance(base_value, np.ndarray):
                 base_value = base_value[1]  # For binary classification
@@ -504,12 +494,14 @@ if submitted:
             st.markdown(f"""
             <div class="info-box">
                 <h4>📊 Understanding the Numbers</h4>
-                <ul>
+                <p><strong>How LightGBM made your prediction:</strong></p>
+                <ul style="font-size: 1.1em; line-height: 1.6;">
                     <li><strong>Base prediction:</strong> {base_value:.3f} (average survival probability for all passengers)</li>
-                    <li><strong>Your prediction:</strong> {proba:.3f}</li>
-                    <li><strong>Total SHAP impact:</strong> {np.sum(shap_vals):.3f}</li>
-                    <li><strong>Green features</strong> increase your survival chances</li>
-                    <li><strong>Red features</strong> decrease your survival chances</li>
+                    <li><strong>Your final prediction:</strong> {proba:.3f} ({proba*100:.1f}% survival chance)</li>
+                    <li><strong>Total SHAP impact:</strong> {np.sum(shap_vals):.3f} (how features changed the base prediction)</li>
+                    <li><strong>🟢 Green features</strong> increase your survival chances</li>
+                    <li><strong>🔴 Red features</strong> decrease your survival chances</li>
+                    <li><strong>Algorithm:</strong> LightGBM (Light Gradient Boosting Machine)</li>
                 </ul>
             </div>
             """, unsafe_allow_html=True)
@@ -518,10 +510,8 @@ if submitted:
             st.error(f"Error generating SHAP explanation: {str(e)}")
             st.info("SHAP explanations are not available for this prediction.")
     
-    elif model is not None:
-        st.info("🔍 SHAP explanations are not available (explainer failed to initialize)")
     else:
-        st.info("🔍 SHAP explanations require the trained model to be available")
+        st.info("🔍 SHAP explanations require the explainer to be properly initialized")
 
     # Input data summary
     with st.expander("🔍 View Your Input Data"):
